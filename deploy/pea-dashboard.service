@@ -1,0 +1,24 @@
+[Unit]
+Description=PEA Quant Dashboard Streamlit
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=peaquant
+Group=peaquant
+WorkingDirectory=/app/pea-quant
+ExecStart=/app/pea-quant/venv/bin/streamlit run dashboard/app.py \
+  --server.port 8501 \
+  --server.address 127.0.0.1 \
+  --server.headless true \
+  --server.fileWatcherType none \
+  --browser.gatherUsageStats false
+Restart=always
+RestartSec=10
+EnvironmentFile=/app/pea-quant/.env
+StandardOutput=append:/var/log/pea-quant/streamlit.log
+StandardError=append:/var/log/pea-quant/streamlit.log
+
+[Install]
+WantedBy=multi-user.target

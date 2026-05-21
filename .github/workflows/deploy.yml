@@ -1,0 +1,49 @@
+name: Deploy to Oracle VM
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            set -e
+
+            # Aller dans le répertoire app
+            cd /app/pea-quant
+
+            # Récupérer le code
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Installer les dépendances dans le venv
+            /app/pea-quant/venv/bin/pip install -r requirements.txt \
+              --quiet --no-warn-script-location
+
+            # Appliquer les migrations DB si nouvelles
+            /app/pea-quant/venv/bin/python scripts/migrate_db.py
+
+            # Restart le dashboard (sudo limité à pea-dashboard)
+            sudo /bin/systemctl restart pea-dashboard
+
+            # Attendre que le service soit up
+            sleep 15
+
+            # Vérifier que le service tourne
+            sudo /bin/systemctl status pea-dashboard \
+              --no-pager | grep "active (running)"
+
+            # Health check HTTP
+            curl -f http://127.0.0.1:8501/_stcore/health || exit 1
+
+            echo "Deploy OK"
